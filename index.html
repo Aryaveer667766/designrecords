@@ -126,6 +126,7 @@
                         <option value="newest">Newest First</option>
                         <option value="oldest">Oldest First</option>
                         <option value="due_soon">Due Date (Soonest)</option>
+                        <option value="progress">Progress (Low to High)</option>
                     </select>
                 </div>
             </div>
@@ -146,7 +147,7 @@
                             <th class="px-6 py-4">Client / Project</th>
                             <th class="px-6 py-4">Type</th>
                             <th class="px-6 py-4">Status</th>
-                            <th class="px-6 py-4 text-right">Pages</th>
+                            <th class="px-6 py-4 w-48">Progress</th>
                             <th class="px-6 py-4 text-right">Financials (₹)</th>
                             <th class="px-6 py-4 text-right">Due Date</th>
                             <th class="px-6 py-4 text-right">Actions</th>
@@ -212,22 +213,35 @@
                         </div>
                     </div>
 
-                    <!-- Financials -->
+                    <!-- Financials & Scope -->
                     <div class="space-y-4">
-                        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Financials (₹)</h3>
+                        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Scope & Financials</h3>
+                        
+                        <!-- Page Count Logic -->
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Total Pages</label>
-                                <input type="number" min="0" id="totalPages" value="1" oninput="app.updateCalc()" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+                                <input type="number" min="1" id="totalPages" value="1" oninput="app.updateCalc()" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Price / Page</label>
-                                <div class="relative">
-                                    <span class="absolute left-3 top-2 text-gray-500">₹</span>
-                                    <input type="number" min="0" step="0.01" id="pricePerPage" value="0" oninput="app.updateCalc()" class="pl-7 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
-                                </div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Pages Done</label>
+                                <input type="number" min="0" id="pagesCreated" value="0" oninput="app.updateCalc()" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-green-50 border-green-200">
                             </div>
                         </div>
+
+                        <div class="flex justify-between items-center text-xs bg-gray-50 p-2 rounded border border-gray-200">
+                            <span class="text-gray-500">Progress:</span>
+                            <span id="calc-pages-info" class="font-bold text-gray-700">0 / 1 (1 Remaining)</span>
+                        </div>
+
+                        <div class="pt-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Price / Page (₹)</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-2 text-gray-500">₹</span>
+                                <input type="number" min="0" step="0.01" id="pricePerPage" value="0" oninput="app.updateCalc()" class="pl-7 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+                            </div>
+                        </div>
+                        
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Advance Paid</label>
                             <div class="relative">
@@ -235,13 +249,14 @@
                                 <input type="number" min="0" step="0.01" id="advancePaid" value="0" oninput="app.updateCalc()" class="pl-7 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
                             </div>
                         </div>
+                        
                         <div class="bg-indigo-50 p-3 rounded-lg border border-indigo-100 mt-2">
                             <div class="flex justify-between text-sm mb-1">
                                 <span class="text-gray-600">Total Cost:</span>
                                 <span id="calc-total" class="font-bold text-indigo-900">₹0</span>
                             </div>
                             <div class="flex justify-between text-sm">
-                                <span class="text-gray-600">Remaining:</span>
+                                <span class="text-gray-600">Remaining Payment:</span>
                                 <span id="calc-remaining" class="font-bold text-indigo-900">₹0</span>
                             </div>
                         </div>
@@ -404,12 +419,14 @@
             renderStats: () => {
                 const stats = state.projects.reduce((acc, curr) => {
                     const { total, remaining } = App.calcFinancials(curr.totalPages, curr.pricePerPage, curr.advancePaid);
+                    const pagesCreated = parseInt(curr.pagesCreated) || 0;
+                    
                     acc.totalRevenue += total;
                     acc.totalOutstanding += remaining;
-                    acc.totalPages += parseInt(curr.totalPages) || 0;
+                    acc.pagesCreated += pagesCreated; // Actual pages made
                     acc.activeProjects += (curr.status !== 'Completed' ? 1 : 0);
                     return acc;
-                }, { totalRevenue: 0, totalOutstanding: 0, totalPages: 0, activeProjects: 0 });
+                }, { totalRevenue: 0, totalOutstanding: 0, pagesCreated: 0, activeProjects: 0 });
 
                 const statsHtml = `
                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
@@ -438,7 +455,7 @@
                             <h3 class="text-sm font-medium text-gray-500">Total Pages Made</h3>
                             <i data-lucide="file-text" class="w-5 h-5 text-blue-500"></i>
                         </div>
-                        <p class="text-2xl font-bold text-gray-900">${stats.totalPages}</p>
+                        <p class="text-2xl font-bold text-gray-900">${stats.pagesCreated}</p>
                     </div>
                 `;
                 document.getElementById('stats-grid').innerHTML = statsHtml;
@@ -472,6 +489,11 @@
                         if (!b.dueDate) return -1;
                         return new Date(a.dueDate) - new Date(b.dueDate);
                     }
+                    if (state.sort === 'progress') {
+                         const progA = (a.pagesCreated || 0) / (a.totalPages || 1);
+                         const progB = (b.pagesCreated || 0) / (b.totalPages || 1);
+                         return progA - progB;
+                    }
                     return 0;
                 });
 
@@ -503,6 +525,11 @@
                         'Review': 'bg-purple-100 text-purple-800 border-purple-200'
                     };
 
+                    const pagesCreated = parseInt(p.pagesCreated) || 0;
+                    const totalPages = parseInt(p.totalPages) || 1;
+                    const percent = Math.min(100, Math.round((pagesCreated / totalPages) * 100));
+                    const pagesLeft = Math.max(0, totalPages - pagesCreated);
+
                     return `
                         <tr class="hover:bg-gray-50 transition group">
                             <td class="px-6 py-4">
@@ -517,9 +544,16 @@
                             <td class="px-6 py-4">
                                 <span class="px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusStyles[p.status] || 'bg-gray-100'}">${p.status}</span>
                             </td>
-                            <td class="px-6 py-4 text-right">
-                                <span class="font-mono text-sm text-gray-700">${p.totalPages}</span>
-                                <div class="text-xs text-gray-400">@ ₹${p.pricePerPage}</div>
+                            <td class="px-6 py-4 align-middle">
+                                <div class="w-full max-w-[140px]">
+                                    <div class="flex justify-between text-xs mb-1 font-medium">
+                                        <span class="text-indigo-900">${pagesCreated} / ${totalPages}</span>
+                                        <span class="text-gray-400">${pagesLeft} left</span>
+                                    </div>
+                                    <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                                        <div class="h-full bg-indigo-500 transition-all duration-500 ease-out" style="width: ${percent}%"></div>
+                                    </div>
+                                </div>
                             </td>
                             <td class="px-6 py-4 text-right">
                                 <div class="flex flex-col items-end">
@@ -556,6 +590,9 @@
                 document.getElementById('edit-id').value = '';
                 document.getElementById('modal-title').innerHTML = '<i data-lucide="plus" class="w-5 h-5 mr-2 text-indigo-600"></i> New Project Record';
                 document.getElementById('modal').classList.remove('hidden');
+                // Reset defaults
+                document.getElementById('totalPages').value = 1;
+                document.getElementById('pagesCreated').value = 0;
                 App.updateCalc();
                 lucide.createIcons();
             },
@@ -574,7 +611,10 @@
                 document.getElementById('projectName').value = p.projectName;
                 document.getElementById('projectType').value = p.projectType || 'Social Media';
                 document.getElementById('status').value = p.status;
+                
                 document.getElementById('totalPages').value = p.totalPages;
+                document.getElementById('pagesCreated').value = p.pagesCreated || 0; // Load new field
+                
                 document.getElementById('pricePerPage').value = p.pricePerPage;
                 document.getElementById('advancePaid').value = p.advancePaid;
                 document.getElementById('dueDate').value = p.dueDate || '';
@@ -609,13 +649,20 @@
             },
 
             updateCalc: () => {
-                const pages = document.getElementById('totalPages').value;
+                const pages = parseFloat(document.getElementById('totalPages').value) || 0;
+                const pagesDone = parseFloat(document.getElementById('pagesCreated').value) || 0;
                 const rate = document.getElementById('pricePerPage').value;
                 const advance = document.getElementById('advancePaid').value;
+                
                 const { total, remaining } = App.calcFinancials(pages, rate, advance);
                 
+                // Update Money
                 document.getElementById('calc-total').innerText = `₹${total.toLocaleString('en-IN')}`;
                 document.getElementById('calc-remaining').innerText = `₹${remaining.toLocaleString('en-IN')}`;
+
+                // Update Page Logic info
+                const pagesLeft = Math.max(0, pages - pagesDone);
+                document.getElementById('calc-pages-info').innerText = `${pagesDone} / ${pages} (${pagesLeft} Remaining)`;
             },
 
             handleSave: async (e) => {
@@ -627,11 +674,12 @@
                     projectType: document.getElementById('projectType').value,
                     status: document.getElementById('status').value,
                     totalPages: parseInt(document.getElementById('totalPages').value) || 0,
+                    pagesCreated: parseInt(document.getElementById('pagesCreated').value) || 0, // Save new field
                     pricePerPage: parseFloat(document.getElementById('pricePerPage').value) || 0,
                     advancePaid: parseFloat(document.getElementById('advancePaid').value) || 0,
                     dueDate: document.getElementById('dueDate').value,
                     notes: document.getElementById('notes').value,
-                    updatedAt: Date.now() // Use simplified timestamp for compatibility
+                    updatedAt: Date.now()
                 };
 
                 if (state.isOffline) {
@@ -673,12 +721,15 @@
             },
 
             downloadCSV: () => {
-                const headers = ["Client Name", "Project", "Type", "Status", "Total Pages", "Price/Page", "Total Cost", "Advance", "Remaining", "Due Date"];
+                const headers = ["Client Name", "Project", "Type", "Status", "Pages Done", "Total Pages", "Remaining Pages", "Price/Page", "Total Cost", "Advance", "Remaining Balance", "Due Date"];
                 const csvData = state.projects.map(p => {
                     const { total, remaining } = App.calcFinancials(p.totalPages, p.pricePerPage, p.advancePaid);
+                    const pagesDone = p.pagesCreated || 0;
+                    const pagesLeft = Math.max(0, p.totalPages - pagesDone);
+
                     return [
                         `"${p.clientName}"`, `"${p.projectName}"`, `"${p.projectType || '-'}"`,
-                        p.status, p.totalPages, p.pricePerPage, total, p.advancePaid, remaining, p.dueDate || '-'
+                        p.status, pagesDone, p.totalPages, pagesLeft, p.pricePerPage, total, p.advancePaid, remaining, p.dueDate || '-'
                     ].join(",");
                 });
 
