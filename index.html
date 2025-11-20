@@ -18,21 +18,6 @@
         body { font-family: 'Inter', sans-serif; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        /* Loading Spinner */
-        .loader {
-            border: 3px solid #f3f3f3;
-            border-radius: 50%;
-            border-top: 3px solid #4f46e5;
-            width: 24px;
-            height: 24px;
-            -webkit-animation: spin 1s linear infinite; /* Safari */
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-screen">
@@ -245,11 +230,34 @@
         import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
         import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
-        // --- Config ---
-        const firebaseConfig = JSON.parse(__firebase_config);
+        // --- CONFIGURATION FIX ---
+        // We try to use the environment config if it exists.
+        // If not (ReferenceError), we fall back to your specific hardcoded config.
+        let firebaseConfig;
+        try {
+            if (typeof __firebase_config !== 'undefined') {
+                firebaseConfig = JSON.parse(__firebase_config);
+            } else {
+                throw new Error('Environment config not found');
+            }
+        } catch (e) {
+            // FALLBACK CONFIGURATION (From your request)
+            firebaseConfig = {
+                apiKey: "AIzaSyBHyyUHxcoTfTCSPeO8QI-StUoqvsbRpFw",
+                authDomain: "designsnap-3538d.firebaseapp.com",
+                databaseURL: "https://designsnap-3538d-default-rtdb.asia-southeast1.firebasedatabase.app",
+                projectId: "designsnap-3538d",
+                storageBucket: "designsnap-3538d.firebasestorage.app",
+                messagingSenderId: "42045980632",
+                appId: "1:42045980632:web:e16d0751deef50b8137cad",
+                measurementId: "G-DH3Z2K7JYY"
+            };
+        }
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        // Use environment appId if available, else 'default-app-id'
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         // --- State ---
@@ -266,9 +274,11 @@
         const App = {
             init: async () => {
                 try {
+                    // Try custom token if available in environment
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await signInWithCustomToken(auth, __initial_auth_token);
                     } else {
+                        // Fallback to anonymous auth
                         await signInAnonymously(auth);
                     }
                 } catch (err) {
@@ -299,7 +309,10 @@
             },
 
             subscribeToData: () => {
+                // We use 'users' collection with user.uid for private data safety
+                // Adjusting path to match standard logic: artifacts -> appId -> users -> userId -> design_projects
                 const q = query(collection(db, 'artifacts', appId, 'users', state.user.uid, 'design_projects'));
+                
                 onSnapshot(q, (snapshot) => {
                     state.projects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                     App.renderStats();
